@@ -1,0 +1,997 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#FF6B35">
+    <title>Pembukuan Slow Everyday</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Sora:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Toast Notification -->
+    <div class="toast" id="toast">
+        <span class="toast-icon" id="toastIcon"></span>
+        <span class="toast-msg" id="toastMsg"></span>
+    </div>
+
+    <!-- QRIS Fullscreen Overlay -->
+    <!-- ===== KASIR FULLSCREEN ===== -->
+    <div class="kasir-overlay" id="kasirOverlay">
+        <div class="kasir-header">
+            <button class="kasir-hbtn" onclick="kasirBack()">←</button>
+            <div class="kasir-title" id="kasirTitle">🧾 Kasir</div>
+            <button class="kasir-hbtn" id="kasirRiwayatBtn" onclick="kasirGoTo('riwayat')" title="Riwayat Transaksi">🧾</button>
+        </div>
+
+        <!-- VIEW: KATALOG PRODUK -->
+        <div class="kasir-view" id="kasirViewKatalog">
+            <div class="kasir-search-wrap">
+                <input type="text" id="kasirSearch" class="kasir-search" placeholder="🔍 Cari produk..." oninput="renderKasirKatalog()">
+            </div>
+            <div class="kasir-chips" id="kasirChips">
+                <button class="kasir-chip active" data-kat="" onclick="kasirFilterKat('', this)">Semua</button>
+                <button class="kasir-chip" data-kat="kopi" onclick="kasirFilterKat('kopi', this)">☕ Kopi</button>
+                <button class="kasir-chip" data-kat="slowktail" onclick="kasirFilterKat('slowktail', this)">🥤 Slowktail</button>
+                <button class="kasir-chip" data-kat="tea" onclick="kasirFilterKat('tea', this)">🍵 Tea</button>
+                <button class="kasir-chip" data-kat="everydays" onclick="kasirFilterKat('everydays', this)">🧋 Everydays</button>
+                <button class="kasir-chip" data-kat="snack" onclick="kasirFilterKat('snack', this)">🍟 Snack & Makanan</button>
+            </div>
+            <div class="kasir-produk-list" id="kasirProdukList"></div>
+            <div class="kasir-cart-bar" id="kasirCartBar" style="display:none;">
+                <div class="kasir-cart-info" onclick="kasirGoTo('detail')">
+                    <span class="kasir-cart-icon">🛒<span class="kasir-cart-badge" id="kasirCartBadge">0</span></span>
+                    <span class="kasir-cart-total" id="kasirCartTotal">Rp 0</span>
+                </div>
+                <button class="kasir-proses-btn" onclick="kasirGoTo('detail')">Proses →</button>
+            </div>
+        </div>
+
+        <!-- VIEW: DETAIL PESANAN -->
+        <div class="kasir-view" id="kasirViewDetail" style="display:none;">
+            <div class="kasir-scroll">
+                <label class="kasir-label">Nama Pelanggan (Opsional)</label>
+                <input type="text" id="kasirNamaPelanggan" class="kasir-input" placeholder="Konsumen" maxlength="40">
+                <button class="kasir-tambah-pesanan" onclick="kasirGoTo('katalog')">＋ Tambah Pesanan</button>
+                <div class="kasir-section-title">Pesanan Berlangsung <span class="kasir-count" id="kasirDetailCount"></span></div>
+                <div id="kasirDetailList"></div>
+            </div>
+            <div class="kasir-bottom">
+                <div class="kasir-subtotal-row"><span>Sub Total</span><b id="kasirDetailSubtotal">Rp 0</b></div>
+                <button class="kasir-primary-btn" onclick="kasirGoTo('bayar')">Pilih Metode Pembayaran</button>
+            </div>
+        </div>
+
+        <!-- VIEW: METODE PEMBAYARAN -->
+        <div class="kasir-view" id="kasirViewBayar" style="display:none;">
+            <div class="kasir-scroll" id="kasirBayarContent"></div>
+            <div class="kasir-bottom">
+                <button class="kasir-primary-btn" id="kasirBayarBtn" onclick="kasirSelesaikanTransaksi()" disabled>Selesaikan Transaksi</button>
+            </div>
+        </div>
+
+        <!-- VIEW: SUKSES -->
+        <div class="kasir-view" id="kasirViewSukses" style="display:none;">
+            <div class="kasir-sukses" id="kasirSuksesContent"></div>
+        </div>
+
+        <!-- VIEW: RIWAYAT -->
+        <div class="kasir-view" id="kasirViewRiwayat" style="display:none;">
+            <div class="kasir-scroll" id="kasirRiwayatList"></div>
+        </div>
+    </div>
+
+    <div class="qris-overlay" id="qrisOverlay" onclick="tutupQrisFullscreen()">
+        <div class="qris-fullscreen" onclick="event.stopPropagation()">
+            <div class="qris-fs-header">
+                <div class="qris-fs-title">📱 QRIS Pembayaran</div>
+                <button class="qris-fs-close" onclick="tutupQrisFullscreen()">✕</button>
+            </div>
+            <div class="qris-fs-name">🏬 JAGOAN DIMSUM 02</div>
+            <div class="qris-fs-img-wrap">
+                <img src="img/qris-dimsum.jpg" alt="QRIS Jagoan Dimsum" class="qris-fs-img">
+            </div>
+            <div class="qris-fs-hint">Arahkan kamera ke QR Code di atas</div>
+            <div class="qris-fs-nmid">NMID: ID10243394311412</div>
+        </div>
+    </div>
+
+    <!-- Confirm Modal -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal-box">
+            <div class="modal-icon" id="modalIcon">⚠️</div>
+            <div class="modal-title" id="modalTitle">Konfirmasi</div>
+            <div class="modal-msg" id="modalMsg"></div>
+            <div class="modal-actions">
+                <button class="modal-btn modal-cancel" id="modalCancel">Batal</button>
+                <button class="modal-btn modal-confirm" id="modalConfirm">Ya, Lanjutkan</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="app-wrapper">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-left">
+                <div class="app-logo">🥟</div>
+                <div class="header-info">
+                    <div class="app-title">Pembukuan Slow Everyday</div>
+                    <div class="app-date" id="currentDate"></div>
+                </div>
+            </div>
+            <div class="header-right">
+                <button class="theme-btn" onclick="toggleSettingsPanel()" title="Pengaturan">⚙️</button>
+            </div>
+
+            <!-- Mini Stats Bar -->
+            <div class="mini-stats" id="miniStats" style="display:none;">
+                <div class="mini-stat">
+                    <span class="ms-label">💰 Pendapatan</span>
+                    <span class="ms-value" id="miniStatsPendapatan">Rp 0</span>
+                </div>
+                <div class="ms-sep"></div>
+                <div class="mini-stat">
+                    <span class="ms-label">📦 Terjual</span>
+                    <span class="ms-value" id="miniStatsPcs">0 pcs</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="tab-nav">
+            <button class="tab-btn active" data-tab="input" onclick="switchTab('input', this)">
+                <span class="tab-icon">➕</span>
+                <span class="tab-label">Input</span>
+            </button>
+            <button class="tab-btn" data-tab="laporan" onclick="switchTab('laporan', this)">
+                <span class="tab-icon">📊</span>
+                <span class="tab-label">Laporan</span>
+            </button>
+            <button class="tab-btn" data-tab="stock" onclick="switchTab('stock', this)">
+                <span class="tab-icon">📦</span>
+                <span class="tab-label">Stock</span>
+            </button>
+            <button class="tab-btn" data-tab="kas" onclick="switchTab('kas', this)">
+                <span class="tab-icon">💰</span>
+                <span class="tab-label">Kas</span>
+            </button>
+            <button class="tab-btn" data-tab="history" onclick="switchTab('history', this)">
+                <span class="tab-icon">📅</span>
+                <span class="tab-label">History</span>
+            </button>
+        </div>
+
+        <!-- Tab Contents -->
+        <div class="tab-body">
+
+            <!-- ===== TAB INPUT ===== -->
+            <div id="tabInput" class="tab-content active">
+
+                <!-- QRIS Button -->
+                <button class="kasir-open-btn" onclick="bukaKasir()">🧾 Buka Kasir</button>
+                <button class="input-qris-btn" onclick="bukaQrisFullscreen()">📱 Tampilkan QRIS Pembayaran</button>
+
+                <div class="section-card">
+                    <div class="section-title">🛒 Catat Penjualan</div>
+
+                    <div class="form-group">
+                        <label>Kategori Produk</label>
+                        <div class="custom-select-wrap" id="kategoriWrap">
+                            <div class="custom-select-trigger" id="kategoriTrigger" onclick="toggleCustomSelect('kategori')">
+                                <span id="kategoriLabel">-- Pilih Kategori --</span>
+                                <span class="custom-select-arrow" id="kategoriArrow">▾</span>
+                            </div>
+                            <div class="custom-select-dropdown" id="kategoriDropdown" style="display:none;">
+                                <div class="csd-item csd-placeholder" onclick="selectKategori('','-- Pilih Kategori --')">-- Pilih Kategori --</div>
+                                <div class="csd-item" onclick="selectKategori('kopi','☕ Kopi')"><span class="csd-icon">☕</span>Kopi</div>
+                                <div class="csd-item" onclick="selectKategori('slowktail','🥤 Slowktail')"><span class="csd-icon">🥤</span>Slowktail</div>
+                                <div class="csd-item" onclick="selectKategori('tea','🍵 Tea')"><span class="csd-icon">🍵</span>Tea</div>
+                                <div class="csd-item" onclick="selectKategori('everydays','🧋 Everydays')"><span class="csd-icon">🧋</span>Everydays</div>
+                                <div class="csd-item" onclick="selectKategori('snack','🍟 Snack & Makanan')"><span class="csd-icon">🍟</span>Snack & Makanan</div>
+                            </div>
+                        </div>
+                        <!-- Hidden select for compatibility -->
+                        <select id="kategori" style="display:none;" onchange="updateMenu()">
+                            <option value="">-- Pilih Kategori --</option>
+                            <option value="kopi">☕ Kopi</option>
+                            <option value="slowktail">🥤 Slowktail</option>
+                            <option value="tea">🍵 Tea</option>
+                            <option value="everydays">🧋 Everydays</option>
+                            <option value="snack">🍟 Snack & Makanan</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Menu</label>
+                        <div class="custom-select-wrap" id="menuWrap">
+                            <div class="custom-select-trigger csd-disabled" id="menuTrigger" onclick="toggleCustomSelect('menu')">
+                                <span id="menuLabel">-- Pilih Menu --</span>
+                                <span class="custom-select-arrow" id="menuArrow">▾</span>
+                            </div>
+                            <div class="custom-select-dropdown" id="menuDropdown" style="display:none;"></div>
+                        </div>
+                        <select id="menu" style="display:none;" onchange="updateHarga()" disabled>
+                            <option value="">-- Pilih Menu --</option>
+                        </select>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Harga Satuan</label>
+                            <input type="text" id="harga" readonly placeholder="Rp 0" class="input-highlight">
+                        </div>
+                        <div class="form-group">
+                            <label>Jumlah Terjual</label>
+                            <input type="number" id="jumlah" placeholder="0" min="1" onfocus="this.select()" onkeydown="handleJumlahKeydown(event)">
+                        </div>
+                    </div>
+
+                    <!-- Quick Jumlah Buttons -->
+                    <div class="quick-amounts" id="quickJumlahBtns">
+                        <button class="qa-btn" onclick="setJumlahQuick(1)">1</button>
+                        <button class="qa-btn" onclick="setJumlahQuick(2)">2</button>
+                        <button class="qa-btn" onclick="setJumlahQuick(3)">3</button>
+                        <button class="qa-btn" onclick="setJumlahQuick(4)">4</button>
+                        <button class="qa-btn" onclick="setJumlahQuick(5)">5</button>
+                        <button class="qa-btn" onclick="setJumlahQuick(6)">6</button>
+                        <button class="qa-btn" onclick="setJumlahQuick(7)">7</button>
+                        <button class="qa-btn" onclick="setJumlahQuick(8)">8</button>
+                        <button class="qa-btn" onclick="setJumlahQuick(9)">9</button>
+                        <button class="qa-btn" onclick="setJumlahQuick(10)">10</button>
+                        <button class="qa-btn" onclick="setJumlahQuick(11)">11</button>
+                        <button class="qa-btn" onclick="setJumlahQuick(12)">12</button>
+                        <button class="qa-btn" onclick="setJumlahQuick(13)">13</button>
+                        <button class="qa-btn" onclick="setJumlahQuick(14)">14</button>
+                        <button class="qa-btn" onclick="setJumlahQuick(15)">15</button>
+                    </div>
+
+                    <!-- Preview Total -->
+                    <div class="preview-total" id="previewTotal" style="display:none;">
+                        <span class="preview-label">Subtotal:</span>
+                        <span class="preview-value" id="previewValue">Rp 0</span>
+                    </div>
+
+                    <button class="btn btn-primary btn-lg" id="btnCatat" onclick="tambahPenjualan()">
+                        ✅ CATAT PENJUALAN
+                    </button>
+                </div>
+
+                <!-- Quick Summary -->
+                <div class="quick-summary-card" id="quickSummary" style="display:none;">
+                    <div class="qs-icon">🎯</div>
+                    <div class="qs-info">
+                        <div class="qs-label">Total Item Hari Ini</div>
+                        <div class="qs-value" id="quickTotal">0 item</div>
+                    </div>
+                    <button class="qs-view-btn" onclick="switchTab('laporan', document.querySelector('[data-tab=laporan]'))">Lihat →</button>
+                </div>
+
+                <!-- Developer credit -->
+                <div class="dev-credit">By Farrel Aulia Irfealdo</div>
+
+            </div>
+
+            <!-- ===== TAB LAPORAN ===== -->
+            <div id="tabLaporan" class="tab-content">
+                <!-- Empty State -->
+                <div class="empty-state" id="emptyState">
+                    <div class="es-icon">📋</div>
+                    <div class="es-title">Belum Ada Data</div>
+                    <div class="es-msg">Belum ada penjualan hari ini</div>
+                </div>
+
+                <!-- Laporan Content -->
+                <div id="laporanSection" style="display:none;">
+                    <!-- Best Seller -->
+                    <div class="best-seller-card" id="bestSellerBanner" style="display:none;">
+                        <div class="bs-trophy">🏆</div>
+                        <div class="bs-info">
+                            <div class="bs-label">Menu Terlaris</div>
+                            <div class="bs-name" id="bestSellerName">-</div>
+                            <div class="bs-count" id="bestSellerCount">0 porsi</div>
+                        </div>
+                    </div>
+
+                    <!-- List Items -->
+                    <div id="laporanList"></div>
+
+                    <!-- Summary Box -->
+                    <div class="summary-card">
+                        <div class="summary-row">
+                            <span>Total Porsi Terjual</span>
+                            <span class="sum-val" id="totalPorsi">0 pcs</span>
+                        </div>
+                        <div class="summary-divider"></div>
+
+                        <!-- Donut Chart -->
+                        <div class="donut-wrap" id="donutWrap" style="display:none;">
+                            <svg class="donut-svg" width="72" height="72" viewBox="0 0 72 72" id="donutSvg"></svg>
+                            <div class="donut-legend">
+                                <div class="donut-legend-item">
+                                    <div class="donut-legend-dot mentai"></div>
+                                    <span>☕ Kopi</span>
+                                    <span class="donut-legend-val" id="donutMentaiPct">0%</span>
+                                </div>
+                                <div class="donut-legend-item">
+                                    <div class="donut-legend-dot goreng"></div>
+                                    <span>🥤 Slowktail</span>
+                                    <span class="donut-legend-val" id="donutGorengPct">0%</span>
+                                </div>
+                                <div class="donut-legend-item">
+                                    <div class="donut-legend-dot mutiara"></div>
+                                    <span>🧋 Lainnya</span>
+                                    <span class="donut-legend-val" id="donutMutiaraPct">0%</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Kategori Progress -->
+                        <div class="kat-progress-wrap" id="katProgressWrap">
+                            <div class="kat-progress-item">
+                                <div class="kat-progress-header">
+                                    <span class="kat-progress-label">☕ Kopi</span>
+                                    <div class="kat-progress-right">
+                                        <span class="kat-pct-badge mentai" id="mentaiPct">0%</span>
+                                        <span class="kat-progress-val" id="totalMentai">Rp 0</span>
+                                    </div>
+                                </div>
+                                <div class="kat-bar-wrap"><div class="kat-bar mentai" id="mentaiBar" style="width:0%"></div></div>
+                            </div>
+                            <div class="kat-progress-item">
+                                <div class="kat-progress-header">
+                                    <span class="kat-progress-label">🥤 Slowktail</span>
+                                    <div class="kat-progress-right">
+                                        <span class="kat-pct-badge goreng" id="gorengPct">0%</span>
+                                        <span class="kat-progress-val" id="totalGoreng">Rp 0</span>
+                                    </div>
+                                </div>
+                                <div class="kat-bar-wrap"><div class="kat-bar goreng" id="gorengBar" style="width:0%"></div></div>
+                            </div>
+                            <div class="kat-progress-item">
+                                <div class="kat-progress-header">
+                                    <span class="kat-progress-label">🧋 Lainnya</span>
+                                    <div class="kat-progress-right">
+                                        <span class="kat-pct-badge mutiara" id="mutiaraPct">0%</span>
+                                        <span class="kat-progress-val" id="totalKukus">Rp 0</span>
+                                    </div>
+                                </div>
+                                <div class="kat-bar-wrap"><div class="kat-bar mutiara" id="mutiaraBar" style="width:0%"></div></div>
+                            </div>
+                        </div>
+
+                        <div class="summary-divider"></div>
+                        <div class="summary-row total">
+                            <span>💰 Total Pendapatan</span>
+                            <span class="sum-total" id="totalPendapatan">Rp 0</span>
+                        </div>
+                    </div>
+
+                    <!-- Closing Section -->
+                    <div class="closing-card" id="closingSection" style="display:none;">
+
+                        <!-- Header -->
+                        <div class="closing-header">
+                            <div class="closing-header-icon">🏦</div>
+                            <div>
+                                <div class="closing-header-text">Closing Keuangan</div>
+                                <div class="closing-header-sub">Rekap akhir hari</div>
+                            </div>
+                        </div>
+
+                        <!-- Input deductions -->
+                        <div class="closing-inputs-wrap">
+                            <div class="closing-inputs-label">Kurangi dari total</div>
+                            <div class="closing-inputs">
+                                <div class="ci-item">
+                                    <label>🛵 GoFood/GrabFood</label>
+                                    <input type="text" id="closingGoFood" placeholder="0" oninput="formatInputNumber(this); updateClosingCalculation()" onfocus="this.select()">
+                                </div>
+                                <div class="ci-item">
+                                    <label>💳 QRIS/E-Wallet</label>
+                                    <input type="text" id="closingQris" placeholder="0" oninput="formatInputNumber(this); updateClosingCalculation()" onfocus="this.select()">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Breakdown -->
+                        <div class="closing-breakdown">
+                            <div class="cb-row">
+                                <span class="cb-label">💰 Saldo Kas</span>
+                                <span class="cb-val" id="closingSaldoKas">Rp 0</span>
+                            </div>
+                            <div class="cb-row">
+                                <span class="cb-label">💵 Pendapatan</span>
+                                <span class="cb-val" id="closingPendapatan">Rp 0</span>
+                            </div>
+                            <div class="cb-row deduct">
+                                <span class="cb-label">🛵 GoFood/GrabFood</span>
+                                <span class="cb-val" id="closingGoFoodDisplay">−Rp 0</span>
+                            </div>
+                            <div class="cb-row deduct">
+                                <span class="cb-label">💳 QRIS/E-Wallet</span>
+                                <span class="cb-val" id="closingQrisDisplay">−Rp 0</span>
+                            </div>
+                            <div class="cb-row total-row">
+                                <span class="cb-label">🏦 Total Uang</span>
+                                <span class="cb-val" id="closingTotal">Rp 0</span>
+                            </div>
+                        </div>
+
+                        <!-- Cash in hand hero -->
+                        <div class="cash-hand-box">
+                            <div class="ch-badge">💵 Uang di Tangan</div>
+                            <div class="ch-value" id="closingCashHand">Rp 0</div>
+                        </div>
+
+                    </div>
+
+                    <!-- Actions -->
+                    <button class="btn-save-history" onclick="simpanDariLaporan()">💾 Simpan Hari Ini ke History</button>
+                    <div class="action-row" style="margin-top:8px;">
+                        <button class="btn btn-blue" onclick="copyLaporan()">📋 Copy Laporan</button>
+                        <button class="btn btn-red" onclick="resetLaporan()">🗑️ Reset</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== TAB STOCK ===== -->
+            <div id="tabStock" class="tab-content">
+                <div id="stockMainSection">
+                    <div class="section-title">📦 Manajemen Stock</div>
+                    <div id="stockList"></div>
+                    <div class="summary-card" id="stockTotalCard" style="display:none; margin-top:12px;">
+                        <div class="summary-row">
+                            <span>📦 Total Awal</span>
+                            <span class="sum-val" id="stockTotalAwal">0 pcs</span>
+                        </div>
+                        <div class="summary-row">
+                            <span>🛒 Total Terjual</span>
+                            <span class="sum-val" id="stockTotalTerjual">0 pcs</span>
+                        </div>
+                        <div class="summary-divider"></div>
+                        <div class="summary-row total">
+                            <span>✅ Total Sisa</span>
+                            <span class="sum-total" id="stockTotalSisa">0 pcs</span>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" onclick="showStockForm()" style="margin-top:12px;">
+                        ➕ TAMBAH STOCK PRODUK
+                    </button>
+                    <button class="btn btn-red" onclick="resetSemuaStock()" style="margin-top:8px;">
+                        🗑️ Reset Semua Stock
+                    </button>
+                </div>
+
+                <div class="form-card" id="stockForm" style="display:none;">
+                    <div class="form-card-title">📝 Input Stock</div>
+                    <div class="form-group">
+                        <label>Kategori</label>
+                        <div class="custom-select-wrap" id="stockKategoriWrap">
+                            <div class="custom-select-trigger" id="stockKategoriTrigger" onclick="toggleCustomSelect('stockKategori')">
+                                <span id="stockKategoriLabel">-- Pilih Kategori --</span>
+                                <span class="custom-select-arrow" id="stockKategoriArrow">▾</span>
+                            </div>
+                            <div class="custom-select-dropdown" id="stockKategoriDropdown" style="display:none;">
+                                <div class="csd-item csd-placeholder" onclick="selectSimple('stockKategori','','-- Pilih Kategori --')">-- Pilih Kategori --</div>
+                                <div class="csd-item" onclick="selectSimple('stockKategori','kopi','☕ Kopi')"><span class="csd-icon">☕</span>Kopi</div>
+                                <div class="csd-item" onclick="selectSimple('stockKategori','slowktail','🥤 Slowktail')"><span class="csd-icon">🥤</span>Slowktail</div>
+                                <div class="csd-item" onclick="selectSimple('stockKategori','tea','🍵 Tea')"><span class="csd-icon">🍵</span>Tea</div>
+                                <div class="csd-item" onclick="selectSimple('stockKategori','everydays','🧋 Everydays')"><span class="csd-icon">🧋</span>Everydays</div>
+                                <div class="csd-item" onclick="selectSimple('stockKategori','snack','🍟 Snack & Makanan')"><span class="csd-icon">🍟</span>Snack & Makanan</div>
+                            </div>
+                        </div>
+                        <select id="stockKategori" style="display:none;">
+                            <option value="">-- Pilih Kategori --</option>
+                            <option value="kopi">☕ Kopi</option>
+                            <option value="slowktail">🥤 Slowktail</option>
+                            <option value="tea">🍵 Tea</option>
+                            <option value="everydays">🧋 Everydays</option>
+                            <option value="snack">🍟 Snack & Makanan</option>
+                        </select>
+                    </div>
+
+                    <!-- Mode Toggle -->
+                    <div class="stock-add-mode-toggle" style="margin-bottom:14px;">
+                        <label class="stock-mode-label">
+                            <input type="radio" name="stockInputMode" value="kotak" checked onchange="toggleStockInputMode()">
+                            <span>📦 Kotak</span>
+                        </label>
+                        <label class="stock-mode-label">
+                            <input type="radio" name="stockInputMode" value="pcs" onchange="toggleStockInputMode()">
+                            <span>🔢 PCS Langsung</span>
+                        </label>
+                    </div>
+
+                    <!-- Input Kotak -->
+                    <div id="stockKotakSection">
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Jumlah Kotak</label>
+                                <input type="number" id="stockJumlahKotak" placeholder="0" min="1" onfocus="this.select()" oninput="hitungStockTotal()">
+                            </div>
+                            <div class="form-group">
+                                <label>PCS per Kotak</label>
+                                <input type="number" id="stockPcsPerKotak" placeholder="12" min="1" onfocus="this.select()" oninput="hitungStockTotal()">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Total PCS</label>
+                            <input type="text" id="stockTotalPcs" readonly class="input-highlight">
+                        </div>
+                    </div>
+
+                    <!-- Input PCS Langsung -->
+                    <div id="stockPcsLangsungSection" style="display:none;">
+                        <div class="form-group">
+                            <label>Jumlah PCS</label>
+                            <input type="number" id="stockPcsLangsung" placeholder="0" min="1" onfocus="this.select()">
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <button class="btn btn-primary" onclick="simpanStock()">💾 Simpan</button>
+                        <button class="btn btn-ghost" onclick="batalStock()">❌ Batal</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ===== TAB KAS ===== -->
+            <div id="tabKas" class="tab-content">
+                <div class="balance-card green">
+                    <div class="bc-label">💰 Saldo Kas Saat Ini</div>
+                    <div class="bc-value" id="kasSaldoDisplay">Rp 0</div>
+                </div>
+
+                <div class="action-row" style="margin-bottom:16px;">
+                    <button class="btn btn-primary" onclick="showTambahKas()">📥 Tambah Kas</button>
+                    <button class="btn btn-red" onclick="showAmbilKas()">📤 Ambil Kas</button>
+                </div>
+
+                <!-- Tambah Kas Form -->
+                <div class="form-card" id="kasTambahForm" style="display:none;">
+                    <div class="form-card-title">📥 Tambah Kas</div>
+                    <div class="form-group">
+                        <label>Jumlah</label>
+                        <input type="text" id="kasTambahJumlah" placeholder="50.000" oninput="formatInputNumber(this)" onfocus="this.select()">
+                    </div>
+                    <div class="quick-amounts" style="margin-bottom:12px;">
+                        <button class="qa-btn" onclick="setKasQuick(30000,'tambah')">30K</button>
+                        <button class="qa-btn" onclick="setKasQuick(50000,'tambah')">50K</button>
+                        <button class="qa-btn" onclick="setKasQuick(100000,'tambah')">100K</button>
+                        <button class="qa-btn" onclick="setKasQuick(200000,'tambah')">200K</button>
+                    </div>
+                    <div class="form-group">
+                        <label>Keterangan (opsional)</label>
+                        <input type="text" id="kasTambahKet" placeholder="Contoh: Tambah modal">
+                    </div>
+                    <div class="form-row">
+                        <button class="btn btn-primary" onclick="simpanTambahKas()">💾 Simpan</button>
+                        <button class="btn btn-ghost" onclick="batalKasForm()">❌ Batal</button>
+                    </div>
+                </div>
+
+                <!-- Ambil Kas Form -->
+                <div class="form-card" id="kasAmbilForm" style="display:none;">
+                    <div class="form-card-title">📤 Ambil Kas</div>
+                    <div class="form-group">
+                        <label>Jumlah</label>
+                        <input type="text" id="kasAmbilJumlah" placeholder="25.000" oninput="formatInputNumber(this)" onfocus="this.select()">
+                    </div>
+                    <div class="quick-amounts" style="margin-bottom:12px;">
+                        <button class="qa-btn" onclick="setKasQuick(10000,'ambil')">10K</button>
+                        <button class="qa-btn" onclick="setKasQuick(20000,'ambil')">20K</button>
+                        <button class="qa-btn" onclick="setKasQuick(30000,'ambil')">30K</button>
+                        <button class="qa-btn" onclick="setKasQuick(50000,'ambil')">50K</button>
+                        <button class="qa-btn" onclick="setKasQuick(100000,'ambil')">100K</button>
+                    </div>
+                    <div class="form-group">
+                        <label>Untuk</label>
+                        <input type="text" id="kasAmbilUntuk" placeholder="Contoh: Beli gas">
+                    </div>
+                    <div class="form-row">
+                        <button class="btn btn-primary" onclick="simpanAmbilKas()">💾 Simpan</button>
+                        <button class="btn btn-ghost" onclick="batalKasForm()">❌ Batal</button>
+                    </div>
+                </div>
+
+                <!-- Riwayat Kas -->
+                <div class="riwayat-section" id="kasRiwayatSection" style="display:none;">
+                    <div class="riwayat-title">📜 Riwayat Hari Ini</div>
+                    <div id="kasRiwayatList"></div>
+                    <div class="summary-card" style="margin-top:12px;">
+                        <div class="summary-row total">
+                            <span>💰 Saldo Akhir Kas</span>
+                            <span class="sum-total" id="kasSaldoAkhir">Rp 0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="empty-state" id="kasEmptyState">
+                    <div class="es-icon">💰</div>
+                    <div class="es-title">Kas Kosong</div>
+                    <div class="es-msg">Belum ada transaksi hari ini</div>
+                </div>
+            </div>
+
+            <!-- ===== TAB HISTORY ===== -->
+            <div id="tabHistory" class="tab-content">
+
+                <!-- Summary Card -->
+                <div class="history-summary-card" id="historySummaryCard" style="display:none;">
+                    <div class="hsc-row">
+                        <div class="hsc-item">
+                            <div class="hsc-label">📅 Total Hari</div>
+                            <div class="hsc-val" id="historyTotalHari">0</div>
+                        </div>
+                        <div class="hsc-divider"></div>
+                        <div class="hsc-item">
+                            <div class="hsc-label">💰 Total Omset</div>
+                            <div class="hsc-val" id="historyTotalOmset">Rp 0</div>
+                        </div>
+                        <div class="hsc-divider"></div>
+                        <div class="hsc-item">
+                            <div class="hsc-label">📈 Rata-rata</div>
+                            <div class="hsc-val" id="historyRataRata">Rp 0</div>
+                        </div>
+                    </div>
+                    <div class="hsc-best" id="historyBest" style="display:none;">
+                        <span>🏆 Hari Terbaik:</span>
+                        <span id="historyBestVal">—</span>
+                    </div>
+                    <!-- Total Gaji Mingguan -->
+                    <div class="hsc-gaji-row" id="hscGajiRow" style="display:none;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:rgba(56,189,248,0.08);border-radius:10px;border:1px solid rgba(56,189,248,0.2);">
+                            <span style="font-size:12px;color:var(--text2);font-weight:700;">💼 Total Gaji Minggu Ini</span>
+                            <span style="font-size:16px;font-weight:800;color:var(--blue);" id="hscTotalGaji">Rp 0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Mini Chart -->
+                <div class="history-chart-wrap" id="historyChartWrap">
+                    <div class="history-chart-title">
+                        <span>📊 Tren Omset & Gaji</span>
+                        <span style="font-size:10px;font-weight:600;color:var(--text3);display:flex;gap:10px;">
+                            <span>🟡 Omset</span>
+                            <span style="color:rgba(56,189,248,0.8);">🔵 Gaji</span>
+                        </span>
+                    </div>
+                    <div class="hc-bars" id="historyChartBars"></div>
+                </div>
+
+                <!-- Filter Bar -->
+                <div class="history-filter-bar" id="historyFilterBar">
+                    <div class="history-filter-row">
+                        <div class="hf-select-wrap">
+                            <div class="hf-trigger" id="hfLokasiTrigger" onclick="toggleHfDropdown('hfLokasi')">
+                                <span class="hf-label" id="hfLokasiLabel">🏪 Semua Lokasi</span>
+                                <span class="hf-arrow">▼</span>
+                            </div>
+                            <div class="hf-dropdown" id="hfLokasiDropdown"></div>
+                        </div>
+                        <div class="hf-select-wrap">
+                            <div class="hf-trigger" id="hfBulanTrigger" onclick="toggleHfDropdown('hfBulan')">
+                                <span class="hf-label" id="hfBulanLabel">📅 Semua Bulan</span>
+                                <span class="hf-arrow">▼</span>
+                            </div>
+                            <div class="hf-dropdown" id="hfBulanDropdown"></div>
+                        </div>
+                    </div>
+                    <div class="filter-info-badge" id="filterInfo"></div>
+                </div>
+
+                <!-- History List -->
+                <div id="historyList"></div>
+
+                <!-- Empty State -->
+                <div class="empty-state" id="historyEmpty">
+                    <div class="es-icon">📅</div>
+                    <div class="es-title">Belum Ada Riwayat</div>
+                    <div class="es-msg">Simpan laporan harian untuk melihat history</div>
+                </div>
+
+                <!-- Actions -->
+                <div id="historyActions" style="display:none; margin-top:4px;">
+                    
+                    <button class="btn btn-primary" onclick="simpanHariIni()" style="width:100%; margin-bottom:8px;">💾 Simpan Hari Ini ke History</button>
+                    <button class="btn" onclick="copyRekapClipboard()" style="width:100%;margin-bottom:8px;background:linear-gradient(135deg,#7C3AED,#A855F7);color:#fff;font-weight:800;">📋 Copy Rekap</button>
+                    <button class="btn btn-red" onclick="resetSemuaHistory()" style="width:100%;">🗑️ Reset Semua History</button>
+                </div>
+                <div id="historySaveBtn" style="margin-top:4px;">
+                    
+                    <button class="btn btn-primary" onclick="simpanHariIni()" style="width:100%;">💾 Simpan Hari Ini ke History</button>
+                </div>
+            </div>
+
+        </div><!-- end tab-body -->
+    </div><!-- end app-wrapper -->
+
+    <!-- Settings Panel -->
+    <div class="sp-overlay" id="settingsPanel" style="display:none;" onclick="if(event.target.id==='settingsPanel')toggleSettingsPanel()">
+        <div class="sp-sheet">
+            <div class="sp-handle"></div>
+            <div class="sp-header">
+                <span class="sp-title">⚙️ Pengaturan</span>
+                <button class="sp-close" onclick="toggleSettingsPanel()">✕</button>
+            </div>
+
+            <!-- Tema Warna -->
+            <div class="sp-section">
+                <div class="sp-label">🎨 Tema Warna</div>
+                <div class="sp-themes">
+                    <button class="sp-theme-btn active" data-theme="orange" onclick="setAccentTheme('orange')">
+                        <span class="sp-theme-dot" style="background:#F4622A"></span>Orange
+                    </button>
+                    <button class="sp-theme-btn" data-theme="green" onclick="setAccentTheme('green')">
+                        <span class="sp-theme-dot" style="background:#10B981"></span>Green
+                    </button>
+                    <button class="sp-theme-btn" data-theme="blue" onclick="setAccentTheme('blue')">
+                        <span class="sp-theme-dot" style="background:#3B82F6"></span>Blue
+                    </button>
+                    <button class="sp-theme-btn" data-theme="purple" onclick="setAccentTheme('purple')">
+                        <span class="sp-theme-dot" style="background:#8B5CF6"></span>Purple
+                    </button>
+                </div>
+            </div>
+
+            <!-- Bahaya -->
+            <div class="sp-section">
+                <div class="sp-label" style="color:var(--red)">⚠️ Zona Bahaya</div>
+                <button class="sp-danger-btn" onclick="toggleSettingsPanel();confirmResetAll()">🗑️ Reset Data Harian</button>
+            </div>
+
+            <!-- Developer Card -->
+            <div class="sp-section">
+                <div class="sp-label">👨‍💻 Developer</div>
+                <div class="dev-card">
+                    <!-- Profile -->
+                    <div class="dev-profile">
+                        <div class="dev-avatar-ring">
+                            <div class="dev-avatar">
+                                <img src="img/icon.png" alt="Farrel" onerror="this.style.display='none';this.parentElement.innerHTML='🥟'">
+                            </div>
+                        </div>
+                        <div class="dev-name">Farrel Aulia Irfealdo</div>
+                        <div class="dev-handle">@farrelauliairfealdo_</div>
+                        <div class="dev-badge">v3.10</div>
+                        <div class="dev-bio">Made with ❤️ from Indonesia 🇮🇩<br>Android Developer · UI/UX Enthusiast</div>
+                    </div>
+
+                    <div class="dev-divider"></div>
+
+                    <!-- Social -->
+                    <div class="dev-social-label">Ikuti Saya</div>
+                    <div class="dev-socials">
+                        <a href="https://whatsapp.com/channel/0029VawFbp2CHDyfgcHIo51h" target="_blank" class="dev-soc-btn dev-soc-wa"><img src="img/WhatsApp.png" alt="WA"><span>WhatsApp</span></a>
+                        <a href="https://t.me/farrelauliairfealdo" target="_blank" class="dev-soc-btn dev-soc-tg"><img src="img/Telegram.png" alt="TG"><span>Telegram</span></a>
+                        <a href="https://www.instagram.com/farrelauliairfealdo_" target="_blank" class="dev-soc-btn dev-soc-ig"><img src="img/Instagram.png" alt="IG"><span>Instagram</span></a>
+                        <a href="https://www.tiktok.com/@farrel.aulia.irfealdo" target="_blank" class="dev-soc-btn dev-soc-tt"><img src="img/TikTok.png" alt="TT"><span>TikTok</span></a>
+                        <a href="https://youtube.com/@nullxd-md" target="_blank" class="dev-soc-btn dev-soc-yt"><img src="img/YouTube.png" alt="YT"><span>YouTube</span></a>
+                    </div>
+
+                    <div class="dev-divider"></div>
+
+                    <!-- Support -->
+                    <div class="dev-social-label">Dukung Developer</div>
+                    <div class="dev-support-row">
+                        <a href="https://saweria.co/nullxd" target="_blank" class="dev-support-btn dev-support-saweria">☕ Saweria</a>
+                        <a href="https://tako.id/nullxd" target="_blank" class="dev-support-btn dev-support-tako">💰 Tako.id</a>
+                    </div>
+                    <button class="dev-support-qris" onclick="toggleQris()">📱 Bayar via QRIS</button>
+                    <div id="qrisBox" style="display:none; margin-top:12px; text-align:center;">
+                        <div style="font-size:11px; color:#94a3b8; margin-bottom:8px;">Scan QRIS untuk donasi 🙏</div>
+                        <img src="img/Qris.jpg" alt="QRIS" style="width:100%; max-width:220px; border-radius:12px; border:2px solid rgba(139,92,246,0.3);">
+                    </div>
+
+                    <div class="dev-footer">© 2022 NullXD · Farrel Aulia Irfealdo</div>
+                </div>
+            </div>
+
+            <!-- About App -->
+            <div class="sp-about">
+                <div style="font-size:40px; margin-bottom:8px;">🥟</div>
+                <div class="sp-about-title">Pembukuan Slow Everyday</div>
+                <div class="sp-about-ver">Versi 3.10</div>
+                <div class="sp-about-desc">Aplikasi pencatatan penjualan harian Slow. Everyday.<br>Dibuat dengan ❤️ untuk kemudahan pembukuan.</div>
+            </div>
+
+            <!-- Changelog -->
+            <div class="sp-changelog">
+                <div class="sp-cl-title">
+                    <span>⭐ Changelog</span>
+                </div>
+
+                <div class="sp-cl-card sp-cl-latest">
+                    <div class="sp-cl-head">
+                        <span class="sp-cl-ver">v3.10</span>
+                        <span class="sp-cl-badge-new">Terbaru</span>
+                    </div>
+                    <div class="sp-cl-body">
+                        + 🧾 Fitur Kasir (POS) — katalog produk, keranjang, &amp; metode pembayaran QRIS/Tunai/Transfer<br>
+                        + 🧾 Riwayat transaksi kasir tersimpan lengkap dengan metode bayar<br>
+                        + ☁️ Sinkronisasi Firebase — data otomatis ter-backup ke cloud<br>
+                        + 🛡️ Detektor error — banner peringatan otomatis jika ada masalah<br>
+                        🏬 App kini khusus stand Ramayana — lokasi tercatat otomatis<br>
+                        💰 Tabel bonus disamakan dengan Excel resmi (tier baru 25rb &amp; 30rb)<br>
+                        📱 Fix tampilan menciut di layar lebar<br>
+                        🐛 Fix reset data ikut menghapus History, stok tertimpa, &amp; label total item
+                    </div>
+                </div>
+
+                <div class="sp-cl-card">
+                    <div class="sp-cl-head">
+                        <span class="sp-cl-ver">v3.9</span>
+                    </div>
+                    <div class="sp-cl-body">
+                        + Kalkulator Gaji Ramayana — gaji pokok + bonus omset otomatis<br>
+                        + QRIS Pembayaran fullscreen di tab Input &amp; History<br>
+                        + Gaji pokok &amp; bonus tampil langsung di kartu History<br>
+                        + Total Gaji Mingguan di summary History<br>
+                        + 📋 Copy Rekap — rekap semua hari sekaligus, siap paste ke channel WA<br>
+                        + 🎨 Warna kartu History berdasarkan performa omset<br>
+                        + 📊 Grafik dual bar — Omset &amp; Gaji per hari<br>
+                        + 💾 Rekap mingguan tersimpan otomatis sebelum reset<br>
+                        + 📅 Notifikasi reminder reset tiap Senin pagi<br>
+                        + 🔔 Notifikasi otomatis saat bonus naik tier<br>
+                        🗑️ Hapus tab Gaji &amp; Kalkulator — lebih simpel<br>
+                        🐛 Fix angka pendapatan header tidak update real-time
+                    </div>
+                </div>
+
+                <div class="sp-cl-card">
+                    <div class="sp-cl-head">
+                        <span class="sp-cl-ver">v3.8</span>
+                    </div>
+                    <div class="sp-cl-body">
+                        + Input stok bisa pilih mode: 📦 Kotak atau 🔢 PCS Langsung<br>
+                        + Toggle mode tersedia di form Tambah Stock Produk &amp; kartu per item
+                    </div>
+                </div>
+
+                <div class="sp-cl-card">
+                    <div class="sp-cl-head">
+                        <span class="sp-cl-ver">v3.7</span>
+                    </div>
+                    <div class="sp-cl-body">
+                        🐛 Fix batas bonus Kereta Api — mulai dari 390K (sebelumnya 400K)
+                    </div>
+                </div>
+
+                <div class="sp-cl-card">
+                    <div class="sp-cl-head">
+                        <span class="sp-cl-ver">v3.6</span>
+                    </div>
+                    <div class="sp-cl-body">
+                        + Redesign kartu stok — angka Sisa besar + ring chart<br>
+                        + Tombol ➕ Tambah Stok per item langsung di kartu<br>
+                        + Preview jumlah sebelum konfirmasi tambah stok<br>
+                        + Tidak perlu reset semua saat stok habis<br>
+                        + Riwayat transfer stok + Undo per transfer<br>
+                        + Persentase &amp; donut chart per kategori di Laporan<br>
+                        + Tombol Simpan ke History langsung dari Laporan
+                    </div>
+                </div>
+
+                <div class="sp-cl-card">
+                    <div class="sp-cl-head">
+                        <span class="sp-cl-ver">v3.4</span>
+                    </div>
+                    <div class="sp-cl-body">
+                        + Detail laporan per menu di History<br>
+                        + Expand/collapse tiap kartu history<br>
+                        + Tampil nama menu, jumlah, harga, total pcs<br>
+                        + Badge kategori warna di detail<br>
+                        + Urut otomatis dari omset terbesar<br>
+                        🐛 Fix "Total Hari" tampil "1 pcs" → "1 hari"<br>
+                        🐛 Fix animasi angka suffix salah
+                    </div>
+                </div>
+
+                <div class="sp-cl-card">
+                    <div class="sp-cl-head">
+                        <span class="sp-cl-ver">v3.3</span>
+                    </div>
+                    <div class="sp-cl-body">
+                        + Filter History: lokasi &amp; bulan<br>
+                        + Custom dropdown filter matching tema gelap<br>
+                        + Animasi fade+slide kartu history<br>
+                        + Angka summary animasi saat filter berubah<br>
+                        + Empty state filter dengan tombol Reset<br>
+                        🐛 Fix dropdown Pilih Stand tidak bisa dibuka<br>
+                        🐛 Fix ID trigger historyLokasi2 typo<br>
+                        🐛 Fix &lt;select&gt; lokasi kosong
+                    </div>
+                </div>
+
+                <div class="sp-cl-card">
+                    <div class="sp-cl-head">
+                        <span class="sp-cl-ver">v3.2</span>
+                    </div>
+                    <div class="sp-cl-body">
+                        + Tab History — riwayat omset harian<br>
+                        + Summary total hari, omset &amp; rata-rata<br>
+                        + 🏆 Highlight hari terbaik otomatis<br>
+                        + Dropdown custom sesuai tema gelap<br>
+                        + Quick Kas: tambah tombol 30K<br>
+                        + Kalkulator Bonus Kereta Api<br>
+                        + Tombol ⚡ Pakai Pendapatan Hari Ini<br>
+                        + Mode Gelap permanen (light mode dihapus)
+                    </div>
+                </div>
+
+                <div class="sp-cl-card">
+                    <div class="sp-cl-head">
+                        <span class="sp-cl-ver">v3.1</span>
+                    </div>
+                    <div class="sp-cl-body">
+                        + Panel Pengaturan baru (slide up dari bawah)<br>
+                        + Tema Warna: Orange, Green, Blue, Purple<br>
+                        + Animasi angka smooth di header<br>
+                        + Social links dengan icon PNG<br>
+                        + Reset Data tidak hapus Gaji<br>
+                        + Changelog &amp; Fitur di Pengaturan
+                    </div>
+                </div>
+
+                <div class="sp-cl-card">
+                    <div class="sp-cl-head">
+                        <span class="sp-cl-ver">v3.0</span>
+                    </div>
+                    <div class="sp-cl-body">
+                        + Mutiara per pcs @ Rp 2.500<br>
+                        + Quick buttons 1–15<br>
+                        + Badge kategori warna di laporan<br>
+                        + Total stock keseluruhan di tab Stock<br>
+                        + Nama kategori singkat di dropdown<br>
+                        + Tombol ⚙️ Pengaturan di header
+                    </div>
+                </div>
+
+                <div class="sp-cl-card">
+                    <div class="sp-cl-head">
+                        <span class="sp-cl-ver">v2.x</span>
+                    </div>
+                    <div class="sp-cl-body">
+                        + Mode Gelap otomatis (jam 18.00–06.00)<br>
+                        + Tab: Input, Laporan, Stock, Kas, Gaji, Kalkulator<br>
+                        + Best seller banner di Laporan<br>
+                        + Copy laporan ke clipboard<br>
+                        + Auto-save setiap 30 detik<br>
+                        + Kalkulator bawaan
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detektor error JS: banner merah muncul HANYA jika ada masalah -->
+    <script>
+    window.__PD_JS_OK = false;
+    window.onerror = function(msg, src, line, col) {
+        try {
+            var d = document.getElementById('pdErrBanner');
+            if (!d) {
+                d = document.createElement('div'); d.id = 'pdErrBanner';
+                d.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#B91C1C;color:#fff;font:12px/1.5 monospace;padding:10px 12px;white-space:pre-wrap;word-break:break-all;';
+                (document.body || document.documentElement).appendChild(d);
+            }
+            d.textContent = '\u26a0\ufe0f JS Error: ' + msg + '\n' + String(src || '').split('/').pop() + ' baris ' + line + (col ? ':' + col : '');
+        } catch (e) {}
+        return false;
+    };
+    window.addEventListener('DOMContentLoaded', function() {
+        if (!window.__PD_JS_OK) {
+            window.onerror('script.js TIDAK termuat atau file korup.\nCek assets/script.js: nama harus persis "script.js", ukuran \u00b1100 KB.', 'boot', 0, 0);
+        }
+    });
+    </script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js" onerror="console.warn('CDN firebase-app-compat.js gagal dimuat')"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js" onerror="console.warn('CDN firebase-auth-compat.js gagal dimuat')"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js" onerror="console.warn('CDN firebase-firestore-compat.js gagal dimuat')"></script>
+    <script src="firebase-sync.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
